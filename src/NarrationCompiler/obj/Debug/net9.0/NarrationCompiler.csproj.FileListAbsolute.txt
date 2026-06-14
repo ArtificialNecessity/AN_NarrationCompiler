@@ -1,0 +1,14 @@
+C:\PROJECTS\AN_Narration_Render_Tool\src\NarrationCompiler\obj\Debug\net9.0\NarrationCompiler.GeneratedMSBuildEditorConfig.editorconfig
+C:\PROJECTS\AN_Narration_Render_Tool\src\NarrationCompiler\obj\Debug\net9.0\NarrationCompiler.AssemblyInfoInputs.cache
+C:\PROJECTS\AN_Narration_Render_Tool\src\NarrationCompiler\obj\Debug\net9.0\NarrationCompiler.AssemblyInfo.cs
+C:\PROJECTS\AN_Narration_Render_Tool\src\NarrationCompiler\obj\Debug\net9.0\NarrationCompiler.csproj.CoreCompileInputs.cache
+C:\PROJECTS\AN_Narration_Render_Tool\src\NarrationCompiler\bin\Debug\net9.0\NarrationCompiler.exe
+C:\PROJECTS\AN_Narration_Render_Tool\src\NarrationCompiler\bin\Debug\net9.0\NarrationCompiler.deps.json
+C:\PROJECTS\AN_Narration_Render_Tool\src\NarrationCompiler\bin\Debug\net9.0\NarrationCompiler.runtimeconfig.json
+C:\PROJECTS\AN_Narration_Render_Tool\src\NarrationCompiler\bin\Debug\net9.0\NarrationCompiler.dll
+C:\PROJECTS\AN_Narration_Render_Tool\src\NarrationCompiler\bin\Debug\net9.0\NarrationCompiler.pdb
+C:\PROJECTS\AN_Narration_Render_Tool\src\NarrationCompiler\obj\Debug\net9.0\NarrationCompiler.dll
+C:\PROJECTS\AN_Narration_Render_Tool\src\NarrationCompiler\obj\Debug\net9.0\refint\NarrationCompiler.dll
+C:\PROJECTS\AN_Narration_Render_Tool\src\NarrationCompiler\obj\Debug\net9.0\NarrationCompiler.pdb
+C:\PROJECTS\AN_Narration_Render_Tool\src\NarrationCompiler\obj\Debug\net9.0\NarrationCompiler.genruntimeconfig.cache
+C:\PROJECTS\AN_Narration_Render_Tool\src\NarrationCompiler\obj\Debug\net9.0\ref\NarrationCompiler.dll
