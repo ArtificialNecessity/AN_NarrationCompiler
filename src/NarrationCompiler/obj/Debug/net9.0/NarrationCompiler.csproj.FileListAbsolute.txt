@@ -12,3 +12,4 @@ C:\PROJECTS\AN_Narration_Render_Tool\src\NarrationCompiler\obj\Debug\net9.0\refi
 C:\PROJECTS\AN_Narration_Render_Tool\src\NarrationCompiler\obj\Debug\net9.0\NarrationCompiler.pdb
 C:\PROJECTS\AN_Narration_Render_Tool\src\NarrationCompiler\obj\Debug\net9.0\NarrationCompiler.genruntimeconfig.cache
 C:\PROJECTS\AN_Narration_Render_Tool\src\NarrationCompiler\obj\Debug\net9.0\ref\NarrationCompiler.dll
+C:\PROJECTS\AN_Narration_Render_Tool\src\NarrationCompiler\obj\Debug\net9.0\NarrationCompiler.sourcelink.json

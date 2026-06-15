@@ -66,6 +66,8 @@ public class CartesiaTTSSession : ITTSSession
     private Task? _receiveTask;
     private bool _disposed;
     private bool _flushed;
+    private int _totalWordsReceived;
+    private int _totalAudioChunksReceived;
 
     public event Action<byte[]>? OnAudioChunkReceived;
     public event Action? OnComplete;
@@ -222,6 +224,7 @@ public class CartesiaTTSSession : ITTSSession
                         if (!string.IsNullOrEmpty(base64Data))
                         {
                             var pcmBytes = Convert.FromBase64String(base64Data);
+                            _totalAudioChunksReceived++;
                             OnAudioChunkReceived?.Invoke(pcmBytes);
                         }
                     }
@@ -247,7 +250,9 @@ public class CartesiaTTSSession : ITTSSession
                         }
 
                         var batch = new WordTimestampBatch(wordArr, startArr, endArr);
-                        DebugSplatter.Debug(DebugTag, $"Timestamps: {count} words");
+                        _totalWordsReceived += count;
+                        var lastEnd = endArr.Length > 0 ? endArr[^1] : 0f;
+                        DebugSplatter.Debug(DebugTag, $"Timestamps batch: +{count} words (total: {_totalWordsReceived}, audio pos: {lastEnd:F1}s, chunks: {_totalAudioChunksReceived})");
                         OnWordTimestamps?.Invoke(batch);
                     }
                     break;
