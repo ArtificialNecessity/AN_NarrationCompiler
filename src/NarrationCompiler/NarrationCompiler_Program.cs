@@ -27,20 +27,23 @@ switch (command)
         if (args.Length < 2)
         {
             Console.Error.WriteLine("ERROR: render-one requires a chapter file path.");
-            Console.Error.WriteLine("Usage: NarrationCompiler render-one <chapter.md> [--voice-id <id>]");
+            Console.Error.WriteLine("Usage: NarrationCompiler render-one <chapter.md> [--voice-id <id>] [--provider <name>]");
             return 1;
         }
         var chapterPath = args[1];
         string? voiceIdOverride = null;
         string? outputDir = null;
+        string? providerName = null;
         for (int i = 2; i < args.Length - 1; i++)
         {
             if (args[i] == "--voice-id")
                 voiceIdOverride = args[i + 1];
             if (args[i] == "--output-dir")
                 outputDir = args[i + 1];
+            if (args[i] == "--provider")
+                providerName = args[i + 1];
         }
-        return await RenderOneCommand.ExecuteAsync(keystore!, chapterPath, voiceIdOverride, outputDir);
+        return await RenderOneCommand.ExecuteAsync(keystore!, chapterPath, voiceIdOverride, outputDir, providerName);
 
     case "render":
         if (args.Length < 2)

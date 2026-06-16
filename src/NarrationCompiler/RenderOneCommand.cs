@@ -1,41 +1,52 @@
 using AstroCryptKit;
 using Mirica.Desktop.Providers.TextToSpeech;
 using Mirica.Desktop.Providers.TextToSpeech.CartesiaProvider;
+using Mirica.Desktop.Providers.TextToSpeech.IndexTTS2Provider;
 using NarrationCompiler.Utils;
 
 namespace NarrationCompiler;
 
 /// <summary>
 /// Implements the "render-one" command: renders a single chapter file to a WAV.
+/// Supports both streaming (Cartesia) and batch (IndexTTS2 via FAL) providers.
 /// </summary>
 public static class RenderOneCommand
 {
     private const int SampleRate = 44100;
 
-    public static async Task<int> ExecuteAsync(AstroCryptKeystore keystore, string chapterPath, string? voiceIdOverride, string? outputDir = null)
+    public static async Task<int> ExecuteAsync(AstroCryptKeystore keystore, string chapterPath, string? voiceIdOverride, string? outputDir = null, string? providerName = null)
     {
-        // 1. Decrypt API key from already-unlocked keystore
-        var apiKey = keystore.RevealDangerouslySecretKeyValue("cartesia_api_key");
+        // Determine which provider to use
+        var useBatchProvider = string.Equals(providerName, "indextts2-fal", StringComparison.OrdinalIgnoreCase);
 
-        // 2. Resolve voice ID
-        string voiceId;
-        if (!string.IsNullOrEmpty(voiceIdOverride))
-        {
-            voiceId = voiceIdOverride;
-        }
-        else
-        {
-            voiceId = keystore.RevealDangerouslySecretKeyValue("cartesia_voice_id");
-        }
-        Console.WriteLine($"Voice ID: {voiceId[..8]}...");
-
-        // 3. Parse the chapter
+        // 1. Parse the chapter
         Console.WriteLine($"Parsing: {chapterPath}");
         var chapter = ChapterParser.Parse(chapterPath);
         if (chapter == null)
             return 1;
 
-        // 4. Check manifest — skip if already rendered with same content+voice
+        // 2. Resolve credentials and voice reference
+        string apiKey;
+        string voiceId;
+
+        if (useBatchProvider)
+        {
+            apiKey = keystore.RevealDangerouslySecretKeyValue("fal_api_key");
+            voiceId = voiceIdOverride ?? keystore.RevealDangerouslySecretKeyValue("indextts2_voice_url");
+        }
+        else
+        {
+            apiKey = keystore.RevealDangerouslySecretKeyValue("cartesia_api_key");
+            voiceId = voiceIdOverride ?? keystore.RevealDangerouslySecretKeyValue("cartesia_voice_id");
+        }
+
+        var voiceDisplay = voiceId.Length > 40
+            ? $"{voiceId[..20]}...{voiceId[^15..]}"
+            : voiceId.Length > 8 ? $"{voiceId[..8]}..." : voiceId;
+        Console.WriteLine($"Provider: {providerName ?? "cartesia"}");
+        Console.WriteLine($"Voice: {voiceDisplay}");
+
+        // 3. Check manifest — skip if already rendered with same content+voice
         var resolvedOutputDir = outputDir ?? Path.GetDirectoryName(Path.GetFullPath(chapterPath)) ?? ".";
         Directory.CreateDirectory(resolvedOutputDir);
         var baseName = Path.GetFileNameWithoutExtension(chapterPath);
@@ -49,7 +60,62 @@ public static class RenderOneCommand
             return 0;
         }
 
-        // 5. Initialize TTS provider (only if we actually need to render)
+        // 4. Render using the appropriate provider
+        if (useBatchProvider)
+        {
+            return await RenderWithBatchProvider(apiKey, voiceId, chapter, resolvedOutputDir, wavFileName, contentHash, manifest);
+        }
+        else
+        {
+            return await RenderWithStreamingProvider(apiKey, voiceId, chapter, resolvedOutputDir, wavFileName, contentHash, manifest);
+        }
+    }
+
+    // ─── Batch Provider (IndexTTS2 via FAL) ─────────────────────────────────────
+
+    private static async Task<int> RenderWithBatchProvider(
+        string apiKey, string voiceId, ParsedChapter chapter,
+        string outputDir, string wavFileName, string contentHash, RenderManifest manifest)
+    {
+        var provider = new IndexTTS2viaFAL();
+        await provider.InitializeAsync(apiKey, voiceId);
+
+        if (!provider.IsReady)
+        {
+            Console.Error.WriteLine("[ERROR] IndexTTS2 provider failed to initialize.");
+            return 1;
+        }
+
+        Console.WriteLine($"Rendering: \"{chapter.ChapterTitle}\" ({chapter.ProseContent.Length:N0} chars)...");
+
+        var pcmData = await provider.RenderTextToPcmAsync(chapter.ProseContent);
+        if (pcmData == null || pcmData.Length == 0)
+        {
+            Console.Error.WriteLine("[ERROR] No audio data received from IndexTTS2.");
+            return 1;
+        }
+
+        // Write WAV file
+        var wavPath = Path.Combine(outputDir, wavFileName);
+        WavWriter.WritePcmToWav(wavPath, pcmData, provider.OutputSampleRate);
+
+        var durationSec = (double)pcmData.Length / (provider.OutputSampleRate * 2); // 16-bit mono = 2 bytes/sample
+        Console.WriteLine($"[DONE] {wavPath}");
+        Console.WriteLine($"       Duration: {TimeSpan.FromSeconds(durationSec):mm':'ss} | Size: {pcmData.Length / 1024:N0} KB");
+
+        manifest.RecordRender(wavFileName, contentHash);
+        manifest.Save();
+
+        await provider.DisposeAsync();
+        return 0;
+    }
+
+    // ─── Streaming Provider (Cartesia) ────────────────────────────────────────
+
+    private static async Task<int> RenderWithStreamingProvider(
+        string apiKey, string voiceId, ParsedChapter chapter,
+        string outputDir, string wavFileName, string contentHash, RenderManifest manifest)
+    {
         var provider = new CartesiaTTSProvider();
         await provider.InitializeAsync(apiKey, voiceId);
 
@@ -59,8 +125,7 @@ public static class RenderOneCommand
             return 1;
         }
 
-        // 6. Render chapter to PCM
-        Console.WriteLine($"Rendering: \"{chapter.ChapterTitle}\" ({chapter.ProseContent.Length:N0} chars)...");
+        Console.WriteLine($"Rendering (streaming): \"{chapter.ChapterTitle}\" ({chapter.ProseContent.Length:N0} chars)...");
 
         var pcmData = await RenderChapterToPcm(provider, chapter.ProseContent);
         if (pcmData == null || pcmData.Length == 0)
@@ -69,15 +134,14 @@ public static class RenderOneCommand
             return 1;
         }
 
-        // 7. Write WAV file
-        var wavPath = Path.Combine(resolvedOutputDir, wavFileName);
+        // Write WAV file
+        var wavPath = Path.Combine(outputDir, wavFileName);
         WavWriter.WritePcmToWav(wavPath, pcmData, SampleRate);
 
         var durationSec = (double)pcmData.Length / (SampleRate * 2); // 16-bit mono = 2 bytes/sample
         Console.WriteLine($"[DONE] {wavPath}");
         Console.WriteLine($"       Duration: {TimeSpan.FromSeconds(durationSec):mm':'ss} | Size: {pcmData.Length / 1024:N0} KB");
 
-        // 8. Update manifest
         manifest.RecordRender(wavFileName, contentHash);
         manifest.Save();
 
