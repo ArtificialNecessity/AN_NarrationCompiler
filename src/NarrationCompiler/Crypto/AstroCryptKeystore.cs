@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 
 namespace AstroCryptKit;
 
@@ -32,6 +33,16 @@ public class AstroCryptKeystore
     private readonly string _userPassphrase;
     private readonly Dictionary<string, string> _encryptedKeysByName;
 
+    /// <summary>
+    /// Shared JsonSerializerOptions with reflection-based resolver enabled.
+    /// Required for .NET 10+ where reflection serialization is opt-in.
+    /// </summary>
+    private static readonly JsonSerializerOptions s_jsonOptions = new()
+    {
+        TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
+        WriteIndented = true
+    };
+
     private AstroCryptKeystore(string userPassphrase, Dictionary<string, string> encryptedKeysByName)
     {
         _userPassphrase = userPassphrase;
@@ -57,7 +68,7 @@ public class AstroCryptKeystore
     {
         string keystoreJsonContent = File.ReadAllText(keystoreFilePath);
         Dictionary<string, string> encryptedKeysByName =
-            JsonSerializer.Deserialize<Dictionary<string, string>>(keystoreJsonContent)
+            JsonSerializer.Deserialize<Dictionary<string, string>>(keystoreJsonContent, s_jsonOptions)
             ?? throw new InvalidOperationException(
                 $"AstroCryptKeystore.LoadFromFile: Failed to deserialize keystore at '{keystoreFilePath}'. " +
                 "File may be corrupted. Expected JSON object with string key-value pairs.");
@@ -75,8 +86,7 @@ public class AstroCryptKeystore
         }
 
         string keystoreJsonContent = JsonSerializer.Serialize(
-            _encryptedKeysByName,
-            new JsonSerializerOptions { WriteIndented = true });
+            _encryptedKeysByName, s_jsonOptions);
         File.WriteAllText(keystoreFilePath, keystoreJsonContent);
     }
 

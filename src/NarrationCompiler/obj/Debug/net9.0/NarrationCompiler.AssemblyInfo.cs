@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("NarrationCompiler")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+24edd4883a0b756ec143100aa15f6c88f3b1cdac")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8b3a9b4f6c54eebe1406f03662197d7f1c6beafa")]
 [assembly: System.Reflection.AssemblyProductAttribute("NarrationCompiler")]
 [assembly: System.Reflection.AssemblyTitleAttribute("NarrationCompiler")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

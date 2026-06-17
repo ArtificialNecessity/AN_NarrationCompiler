@@ -1,4 +1,5 @@
 using AstroCryptKit;
+using System.Text;
 using Mirica.Desktop.Providers.TextToSpeech;
 using Mirica.Desktop.Providers.TextToSpeech.CartesiaProvider;
 using Mirica.Desktop.Providers.TextToSpeech.IndexTTS2Provider;
@@ -88,26 +89,14 @@ public static class RenderOneCommand
 
         Console.WriteLine($"Rendering: \"{chapter.ChapterTitle}\" ({chapter.ProseContent.Length:N0} chars)...");
 
-        var pcmData = await provider.RenderTextToPcmAsync(chapter.ProseContent);
-        if (pcmData == null || pcmData.Length == 0)
-        {
-            Console.Error.WriteLine("[ERROR] No audio data received from IndexTTS2.");
-            return 1;
-        }
+        // Chunk the text on paragraph/section boundaries to avoid API timeouts
+        var chunks = ChunkTextForBatchRender(chapter.ProseContent);
+        Console.WriteLine($"  Split into {chunks.Count} chunk(s) for batch rendering.");
 
-        // Write WAV file
-        var wavPath = Path.Combine(outputDir, wavFileName);
-        WavWriter.WritePcmToWav(wavPath, pcmData, provider.OutputSampleRate);
-
-        var durationSec = (double)pcmData.Length / (provider.OutputSampleRate * 2); // 16-bit mono = 2 bytes/sample
-        Console.WriteLine($"[DONE] {wavPath}");
-        Console.WriteLine($"       Duration: {TimeSpan.FromSeconds(durationSec):mm':'ss} | Size: {pcmData.Length / 1024:N0} KB");
-
-        manifest.RecordRender(wavFileName, contentHash);
-        manifest.Save();
+        int result = await RenderChunksToNumberedWavs(provider, chunks, outputDir, wavFileName, contentHash, manifest);
 
         await provider.DisposeAsync();
-        return 0;
+        return result;
     }
 
     // ─── Streaming Provider (Cartesia) ────────────────────────────────────────
@@ -219,5 +208,171 @@ public static class RenderOneCommand
         }
 
         return result;
+    }
+
+    // ─── Chunking for Batch Provider ─────────────────────────────────────────────
+
+    /// <summary>
+    /// Maximum characters per chunk sent to the batch TTS provider.
+    /// IndexTTS2 via FAL times out on very long texts; this keeps each request manageable.
+    /// </summary>
+    private const int MaxChunkChars = 3000;
+
+    /// <summary>
+    /// Split prose text into chunks suitable for batch TTS rendering.
+    /// Splits on section breaks (---) first, then on paragraph boundaries (\n\n),
+    /// enforcing a maximum character limit per chunk.
+    /// </summary>
+    private static List<string> ChunkTextForBatchRender(string proseText)
+    {
+        // First, split on section breaks (--- on its own line)
+        var sections = SplitOnSectionBreaks(proseText);
+
+        // Then, for each section, split further on paragraph boundaries if too large
+        var chunks = new List<string>();
+        foreach (var section in sections)
+        {
+            if (section.Length <= MaxChunkChars)
+            {
+                chunks.Add(section);
+            }
+            else
+            {
+                // Split on paragraph boundaries (\n\n)
+                chunks.AddRange(SplitOnParagraphs(section, MaxChunkChars));
+            }
+        }
+
+        return chunks;
+    }
+
+    /// <summary>
+    /// Split text on "---" lines (horizontal rules / section breaks).
+    /// </summary>
+    private static List<string> SplitOnSectionBreaks(string text)
+    {
+        var sections = new List<string>();
+        var lines = text.Split('\n');
+        var currentSection = new List<string>();
+
+        foreach (var line in lines)
+        {
+            if (line.Trim() == "---")
+            {
+                if (currentSection.Count > 0)
+                {
+                    var sectionText = string.Join("\n", currentSection).Trim();
+                    if (sectionText.Length > 0)
+                        sections.Add(sectionText);
+                    currentSection.Clear();
+                }
+            }
+            else
+            {
+                currentSection.Add(line);
+            }
+        }
+
+        // Don't forget the last section
+        if (currentSection.Count > 0)
+        {
+            var sectionText = string.Join("\n", currentSection).Trim();
+            if (sectionText.Length > 0)
+                sections.Add(sectionText);
+        }
+
+        return sections;
+    }
+
+    /// <summary>
+    /// Split a section into chunks on paragraph boundaries (\n\n), respecting maxChars.
+    /// Paragraphs are never split mid-paragraph — if a single paragraph exceeds maxChars,
+    /// it becomes its own chunk.
+    /// </summary>
+    private static List<string> SplitOnParagraphs(string section, int maxChars)
+    {
+        var paragraphs = section.Split(new[] { "\n\n" }, StringSplitOptions.RemoveEmptyEntries);
+        var chunks = new List<string>();
+        var currentChunk = new StringBuilder();
+
+        foreach (var para in paragraphs)
+        {
+            var trimmedPara = para.Trim();
+            if (trimmedPara.Length == 0) continue;
+
+            // If adding this paragraph would exceed the limit, flush current chunk
+            if (currentChunk.Length > 0 && currentChunk.Length + trimmedPara.Length + 2 > maxChars)
+            {
+                chunks.Add(currentChunk.ToString().Trim());
+                currentChunk.Clear();
+            }
+
+            if (currentChunk.Length > 0)
+                currentChunk.Append("\n\n");
+            currentChunk.Append(trimmedPara);
+        }
+
+        // Flush remaining
+        if (currentChunk.Length > 0)
+        {
+            chunks.Add(currentChunk.ToString().Trim());
+        }
+
+        return chunks;
+    }
+
+    /// <summary>
+    /// Render text chunks sequentially, writing each as a separate numbered WAV file.
+    /// Files are named: baseName_001.wav, baseName_002.wav, etc.
+    /// Each file is written immediately after rendering, so partial progress is preserved.
+    /// </summary>
+    private static async Task<int> RenderChunksToNumberedWavs(
+        IndexTTS2viaFAL provider, List<string> chunks,
+        string outputDir, string wavFileName, string contentHash, RenderManifest manifest)
+    {
+        var baseName = Path.GetFileNameWithoutExtension(wavFileName);
+        int successCount = 0;
+        double totalDuration = 0;
+
+        for (int i = 0; i < chunks.Count; i++)
+        {
+            var chunk = chunks[i];
+            Console.WriteLine($"  [{i + 1}/{chunks.Count}] Rendering chunk ({chunk.Length:N0} chars)...");
+
+            var pcm = await provider.RenderTextToPcmAsync(chunk);
+            if (pcm == null || pcm.Length == 0)
+            {
+                Console.Error.WriteLine($"  [{i + 1}/{chunks.Count}] FAILED — no audio returned.");
+                continue;
+            }
+
+            // Write this chunk immediately as a numbered WAV
+            var chunkFileName = chunks.Count == 1
+                ? wavFileName
+                : $"{baseName}_{(i + 1):D3}.wav";
+            var chunkPath = Path.Combine(outputDir, chunkFileName);
+            WavWriter.WritePcmToWav(chunkPath, pcm, provider.OutputSampleRate);
+
+            var durationSec = (double)pcm.Length / (provider.OutputSampleRate * 2);
+            totalDuration += durationSec;
+            successCount++;
+
+            Console.WriteLine($"  [{i + 1}/{chunks.Count}] OK — {chunkFileName} ({durationSec:F1}s, {pcm.Length / 1024:N0} KB)");
+        }
+
+        if (successCount == 0)
+        {
+            Console.Error.WriteLine("[ERROR] No chunks rendered successfully.");
+            return 1;
+        }
+
+        Console.WriteLine();
+        Console.WriteLine($"[DONE] {successCount}/{chunks.Count} chunks rendered ({totalDuration:F1}s total)");
+        Console.WriteLine($"       Output: {outputDir}");
+
+        manifest.RecordRender(wavFileName, contentHash);
+        manifest.Save();
+
+        return 0;
     }
 }

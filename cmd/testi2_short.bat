@@ -3,7 +3,7 @@ REM Quick test: ONE short sentence through IndexTTS2 via FAL
 REM Uses the keystore normally (password prompt), just a tiny input to debug the API call
 
 set CHAPTER=%~dp0test_chapter_short.md
-set VOICE_REF=C:\PROJECTS\ASTRO-VIDEO\Assets\speech_reference\Optimistic_female_medium_register_actress.wav
+set VOICE_REF=%~dp0..\Assets\speech_reference\jacqueline.wav
 set OUTPUT_DIR=%~dp0..\test_output
 
 echo ============================================

@@ -2,7 +2,7 @@
 REM Test render-one with IndexTTS2 via FAL against a Reina chapter
 
 set CHAPTER=C:\PROJECTS\_nm42\Game_SamaZorel\PLAYERS\Player_04_Reina_at_KMR\CHAPTERS\Chapter_01_Deep_Ocean_Vents_FULLPROSE.md
-set VOICE_REF=C:\PROJECTS\ASTRO-VIDEO\Assets\speech_reference\Optimistic_female_medium_register_actress.wav
+set VOICE_REF=%~dp0..\Assets\speech_reference\jacqueline.wav
 set OUTPUT_DIR=C:\PROJECTS\_nm42\Game_SamaZorel\PLAYERS\Player_04_Reina_at_KMR\CHAPTERS_AUDIO
 
 echo ============================================

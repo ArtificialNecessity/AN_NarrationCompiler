@@ -6,6 +6,7 @@
       "version": "9.0.0"
     },
     "configProperties": {
+      "System.Text.Json.JsonSerializer.IsReflectionEnabledByDefault": true,
       "System.Runtime.Serialization.EnableUnsafeBinaryFormatterSerialization": false
     }
   }

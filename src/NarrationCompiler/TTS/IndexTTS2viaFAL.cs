@@ -1,7 +1,6 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 
 namespace Mirica.Desktop.Providers.TextToSpeech.IndexTTS2Provider;
 
@@ -63,7 +62,7 @@ public class IndexTTS2viaFAL : ITTSBatchRenderProvider
 
         // Build request payload
         var requestBody = BuildRequestPayload(text, audioUrl, options);
-        var jsonContent = JsonSerializer.Serialize(requestBody, FalJsonContext.Default.DictionaryStringObject);
+        var jsonContent = JsonSerializer.Serialize(requestBody);
 
         // Make the API call
         Console.WriteLine($"[{ProviderId}] Sending request ({text.Length:N0} chars)...");
@@ -357,12 +356,4 @@ public class IndexTTS2viaFAL : ITTSBatchRenderProvider
             _ => "audio/mpeg"
         };
     }
-}
-
-/// <summary>
-/// JSON serialization context for FAL API requests.
-/// </summary>
-[JsonSerializable(typeof(Dictionary<string, object>))]
-internal partial class FalJsonContext : JsonSerializerContext
-{
 }

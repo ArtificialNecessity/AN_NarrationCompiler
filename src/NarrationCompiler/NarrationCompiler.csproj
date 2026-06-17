@@ -8,4 +8,8 @@
     <AssemblyName>NarrationCompiler</AssemblyName>
     <RootNamespace>NarrationCompiler</RootNamespace>
   </PropertyGroup>
+
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="System.Text.Json.JsonSerializer.IsReflectionEnabledByDefault" Value="true" />
+  </ItemGroup>
 </Project>
