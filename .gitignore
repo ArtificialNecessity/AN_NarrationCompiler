@@ -1,0 +1,43 @@
+## .NET build outputs
+bin/
+obj/
+
+## User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## VS / Rider IDE
+.vs/
+.idea/
+*.swp
+*~
+
+## NuGet
+*.nupkg
+*.snupkg
+packages/
+
+## Build results
+*.dll
+*.exe
+*.pdb
+*.cache
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+
+## OS junk
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+## Test results
+TestResults/
+*.trx
+
+## Publish output
+publish/

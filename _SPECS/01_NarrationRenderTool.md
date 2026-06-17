@@ -4,41 +4,15 @@
 
 A .NET console tool that renders markdown story chapters into a voiced audiobook using Cartesia TTS.
 
-**Input:** A JSON render config pointing at chapter files, voice mappings, and output settings.
+**Input:** A `.mirica.metadata.jsonc` config file (see [02_NarrativeCompilerMetadataSpec.md](./02_NarrativeCompilerMetadataSpec.md) for full format).
 **Output:** A single concatenated and compressed audio file (mp3/ogg).
 
 ---
 
-## JSON Render Config Shape
+## Config Format
 
-```json
-{
-  "voice_mapping": {
-    "narrator": { "cartesia_voice_id": "a1b2c3d4-..." },
-    "suzy":     { "cartesia_voice_id": "e5f6g7h8-..." }
-  },
-  "default_voice": "narrator",
-  "chapters": [
-    { "file": "./chapters/Chapter_01_Seven_Minutes.md" },
-    { "file": "./chapters/Chapter_02_The_Girl_On_The_Wall.md", "voice": "suzy" }
-  ],
-  "output_dir": "./output",
-  "silence_gap_ms": 2000,
-  "output_format": "mp3",
-  "compression_bitrate_kbps": 128
-}
-```
-
-**`auto_chapters` option:**
-- If `"auto_chapters": true` is set, the tool scans `"chapters_dir"` (or the directory of the first chapter file) for markdown files matching `Chapter_*.md`
-- Any files found that are NOT already in the `"chapters"` array are **appended** to it automatically
-- The tool prints a clear message for each auto-discovered chapter: `[AUTO] Added: Chapter_05_Three_In_A_Kitchen.md`
-- The updated chapter list is written back to the config JSON so subsequent runs have an explicit index
-
-**Voice resolution order (per chapter):**
-1. Chapter-level `"voice"` field → lookup in `voice_mapping`
-2. Top-level `"default_voice"` → lookup in `voice_mapping`
-3. Fallback: `cartesia_voice_id` from the global `EncryptedKeys.json` keystore
+The audio render config lives in the `"audio"` section of a `.mirica.metadata.jsonc` entry.
+See **[02_NarrativeCompilerMetadataSpec.md](./02_NarrativeCompilerMetadataSpec.md)** for the full config schema, chapter manifest format, and voice resolution logic.
 
 ---
 
@@ -52,17 +26,7 @@ A .NET console tool that renders markdown story chapters into a voiced audiobook
 
 ---
 
-## Chapter Parsing Rules
-
-- Find the line matching regex: `^#{1,}\s+Content\s*$` (any H-level with just "Content")
-- Everything **after** that line is prose to be rendered
-- The `# Chapter NN: Title` line (first line) is extracted for metadata/logging
-- Everything between the chapter title and `# Content` is **ignored** (metadata sections)
-- If no `# Content` marker found → print error to console, skip the file, continue
-
----
-
-## Caching / Skip Logic
+## Audio Caching / Skip Logic
 
 - For each chapter: compute hash of `(prose_text + resolved_voice_id)`
 - Per-chapter raw audio files stored in `output_dir` as `chapter_NN_HASH.wav` (or `.raw`)
@@ -112,7 +76,7 @@ A .NET console tool that renders markdown story chapters into a voiced audiobook
 
 ### Phase 3 — JSON Config & Multi-Chapter Pipeline
 
-- [ ] Define and parse the JSON render config (System.Text.Json)
+- [ ] Parse the `.mirica.metadata.jsonc` config (System.Text.Json with AllowComments)
 - [ ] Implement voice resolution logic (chapter → default → keystore fallback)
 - [ ] Iterate all chapters: parse, resolve voice, print status
 - [ ] Implement content hashing + cache-check (skip already-rendered chapters)
@@ -136,11 +100,10 @@ A .NET console tool that renders markdown story chapters into a voiced audiobook
 
 ### Phase 6 — Init & Auto-Chapters
 
-- [ ] `--init <chapters-dir>` command: scans the directory, creates a `NarrationRenderConfig.json` with:
-  - [ ] `auto_chapters: true`
-  - [ ] `chapters_dir` set to the provided path
+- [ ] `--init <chapters-dir>` command: scans the directory, creates a `.mirica.metadata.jsonc` with:
+  - [ ] Base metadata fields populated
   - [ ] `chapters` array pre-populated with all `Chapter_*.md` files found
-  - [ ] Sensible defaults (`silence_gap_ms: 2000`, `output_format: "mp3"`, `compression_bitrate_kbps: 128`)
+  - [ ] Sensible `audio` defaults (`silence_gap_ms: 2000`, `output_format: "mp3"`, `compression_bitrate_kbps: 128`)
   - [ ] Empty `voice_mapping` and `default_voice: null` (uses keystore fallback)
 - [ ] Auto-chapter discovery logic in the render pipeline (scan, diff, append, print, persist)
 
@@ -152,8 +115,11 @@ A .NET console tool that renders markdown story chapters into a voiced audiobook
 # Phase 2 — minimal single chapter:
 NarrationCompiler render-one <chapter.md> [--voice-id <id>]
 
-# Phase 3+ — full pipeline:
-NarrationCompiler render <config.json> [--auto-chapters]
+# Phase 3+ — full audio pipeline:
+NarrationCompiler render <config.jsonc> [--auto-chapters]
+
+# Print compilation (HTML output):
+NarrationCompiler publish <config.jsonc> [--through-chapter <N>]
 
 # Phase 6 — init:
 NarrationCompiler init <chapters-dir> [--output <config-path>]
