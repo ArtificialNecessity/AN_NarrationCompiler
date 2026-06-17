@@ -12,4 +12,12 @@
   <ItemGroup>
     <RuntimeHostConfigurationOption Include="System.Text.Json.JsonSerializer.IsReflectionEnabledByDefault" Value="true" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- Copy CSS styles to output for the Print module -->
+    <None Update="Print\Styles\*.css">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>Styles\%(Filename)%(Extension)</Link>
+    </None>
+  </ItemGroup>
 </Project>

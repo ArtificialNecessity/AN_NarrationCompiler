@@ -41,3 +41,6 @@ TestResults/
 
 ## Publish output
 publish/
+
+## Rendered output (generated HTML/EPUB/audio)
+RENDERED_OUTPUT/
